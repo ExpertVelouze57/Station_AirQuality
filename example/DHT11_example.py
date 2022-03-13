@@ -10,6 +10,7 @@ def main():
     while True:
         humi, temp = sensor.read()
         print('temperature {}C, humidity {}%'.format(temp, humi))
+        print('DHT{0}, humidity {1:.1f}%, temperature {2:.1f}*'.format(sensor.dht_type, humi, temp))
 
         time.sleep(1)
 

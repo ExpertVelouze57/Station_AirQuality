@@ -15,6 +15,10 @@ def on_event(index, event, tm):
         print('long press')
         button.led.light(False)
 
+    elif event & Button.EV_DOUBLE_CLICK:
+        print(' press')
+        button.led.blink()  
+
 def main():
     #button = GroveLedButton(22)
     button.on_event = on_event
