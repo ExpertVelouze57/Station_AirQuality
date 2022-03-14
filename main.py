@@ -1,19 +1,26 @@
 #!/usr/bin/env python3
 
+import os
+
+import sys
+
 #Import all librairy
 import cayenne.client #Cayenne MQTT Client
 import threading
 import logging
 import time
-import os
 
-
+from csv import writer
 from grove.adc import ADC
 from seeed_dht import DHT
+from datetime import datetime
 from grove.button import Button
 from grove.display.jhd1802 import JHD1802
 from grove.grove_ryb_led_button import GroveLedButton
 from grove.grove_light_sensor_v1_2 import GroveLightSensor
+
+
+
 
 #Variable globale
 ip_activation = False
@@ -31,9 +38,10 @@ CO2_value = 0.0
 
 alarm_ready = 1
 alarm_in_progress =0
-wait_b_send = 10
+wait_b_send = 3
 triger_co2 = 1500
 
+id =0
 ### Definition of all pin 
 PIN_DHT = 5
 PIN_CO2 = 6
@@ -52,6 +60,20 @@ username = "55656590-9b20-11ec-8da3-474359af83d7"
 password = "3f5970ed8c45a61103ae0bef382df719b4fb981e"
 clientid = "0ecc0210-9d78-11ec-8c44-371df593ba58"
 
+def save_csv():
+  global id
+  id = datetime.today().strftime('%Y-%m-%d_ %H:%M:%S')
+  list_data=[id,temp,hum, light_value, CO2_value]
+
+  with open('/home/pi/base.csv', 'a', newline='') as f_object:  
+    # Pass the CSV  file object to the writer() function
+    writer_object = writer(f_object)
+    # Result - a writer object
+    # Pass the data in the list as an argument into the writerow() function
+    writer_object.writerow(list_data)  
+    # Close the file object
+    f_object.close()
+
 def on_message(message):
   global alarm_ready, wait_b_send, triger_co2
   if cmd_ready ==  True : 
@@ -67,7 +89,7 @@ def on_message(message):
     client.virtualWrite(9, alarm_ready, "digital_sensor", "d")
     client.virtualWrite(10, wait_b_send, "analog_sensor")
     client.virtualWrite(11, triger_co2, "analog_sensor")
-  print("new paramter : alarme : {}, time : {}, trigger : {}".format(alarm_ready, wait_b_send, triger_co2))
+  #print("new paramter : alarme : {}, time : {}, trigger : {}".format(alarm_ready, wait_b_send, triger_co2))
 
 
 
@@ -109,7 +131,7 @@ def catch_sensors_values():
 
     #light value
     light_value = Light_sensor.light
-
+    #print('Get value')
     time.sleep(10)
 
 
@@ -209,10 +231,10 @@ def on_event(index, event, callback):
 
   elif event & Button.EV_LONG_PRESS:
     cmd_ready = False
+    ip_activation= False
     Red_button.led.light(False)
     time.sleep(3)
     Red_button.led.light(True)
-
 
   elif event & Button.EV_DOUBLE_CLICK:
     cmd_ready = True
@@ -223,12 +245,8 @@ def on_event(index, event, callback):
 
 if __name__ == '__main__':
   global client
+  count =  wait_b_send*60+10
   Red_button.on_event = on_event
-
-
-  client = cayenne.client.CayenneMQTTClient()
-  client.on_message = on_message #When message recieved from Cayenne run on_message function
-  client.begin(username, password, clientid)
 
   m = thread_screen()
   m.start()
@@ -236,15 +254,20 @@ if __name__ == '__main__':
   x = threading.Thread(target=catch_sensors_values)
   x.start()
 
+  client = cayenne.client.CayenneMQTTClient()
+  client.on_message = on_message #When message recieved from Cayenne run on_message function
+  client.begin(username, password, clientid)
+
   time.sleep(5)
+  client.loop()
   while True:
     #Send data to Cayenne 
     
     if cmd_ready == True:
       #mode cmd, i catch more frequently
       client.loop()
-      time.sleep(1)
-    else:
+    elif (count >=  (wait_b_send*60)):#Only 10 minutes 
+      count = 0
       #prepare to publish
       client.virtualWrite(4, temp, "temp", "c" )
       client.virtualWrite(5, hum, "rel_hum", "p")
@@ -257,7 +280,13 @@ if __name__ == '__main__':
       client.virtualWrite(11, triger_co2, "analog_sensor")
 
       client.loop()
-      time.sleep(wait_b_send*60) #Only 10 minutes 
+      save_csv()
+      print("data send")
+ 
+    if cmd_ready == False:
+      count+=1
+    time.sleep(1)
+    print("Status : {}   {} ".format(cmd_ready, count))
 
   m.join()
   x.join()
