@@ -38,7 +38,7 @@ logger.setLevel(logging.DEBUG)
 
 
 ### Variable globale
-name_of_file = "data_"+ date_now  +".csv"
+name_of_file = "data_"+ date_start  +".csv"
 
 ## variable gestion de page
 ip_activation = False
@@ -79,19 +79,29 @@ clientid = "0ecc0210-9d78-11ec-8c44-371df593ba58"
 
 
 
+#Definition des fonctions pour le stockage des données
+def init_csv():
+  #Generation des en-tete
+  list_data=["Date","Température","Humidité", "Luminosité", "CO2 "]
+
+  with open('/home/pi/'+name_of_file, 'a', newline='') as f_object:  
+    writer_object = writer(f_object)
+    writer_object.writerow(list_data)  
+    f_object.close()
+
 def save_csv():
-  id = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
+  #Save data 
+  id = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
   list_data=[id,temp,hum, light_value, CO2_value]
 
   with open('/home/pi/'+name_of_file, 'a', newline='') as f_object:  
-    # Pass the CSV  file object to the writer() function
     writer_object = writer(f_object)
-    # Result - a writer object
-    # Pass the data in the list as an argument into the writerow() function
     writer_object.writerow(list_data)  
-    # Close the file object
     f_object.close()
 
+
+
+#Definition de la fonction de traitement des message recu (MQTT)
 def on_message(message):
   global alarm_ready, wait_b_send, triger_co2
   if cmd_ready ==  True : 
@@ -107,13 +117,12 @@ def on_message(message):
     client.virtualWrite(9, alarm_ready, "digital_sensor", "d")
     client.virtualWrite(10, wait_b_send, "analog_sensor")
     client.virtualWrite(11, triger_co2, "analog_sensor")
-  #print("new paramter : alarme : {}, time : {}, trigger : {}".format(alarm_ready, wait_b_send, triger_co2))
+  #logger.info("new paramter : alarme : {}, time : {}, trigger : {}".format(alarm_ready, wait_b_send, triger_co2))
 
 
 
 
-#Fonction
-
+#Fonction récuperation des donnée provenant de capteur
 def catch_sensors_values():
   global hum, temp, CO2_value, light_value, important, alarm_in_progress
   
@@ -125,9 +134,9 @@ def catch_sensors_values():
     CO2_volt= CO2_adc.read_voltage( PIN_CO2 )
     CO2_value=int( ( CO2_volt - 400 ) * 50.0 / 16.0 )
 
-    
+    #Triger sur la valeur CO2, si detecter envoie message
     if CO2_value >= triger_co2:
-      if important == False:
+      if important == False and alarm_ready == 0:
         important = True
         alarm_in_progress = 1
         client.virtualWrite(4, temp, "temp", "c" )
@@ -154,6 +163,7 @@ def catch_sensors_values():
     time.sleep(10)
 
 
+#fonction de récuperation de l'adresse ip
 def ip_wifi():
   temp = os.popen('ip -4 addr show wlan0 | grep -oP "(?<=inet ).*(?=/)"').read()
   if len(temp) ==0:
@@ -169,7 +179,7 @@ def ip_eth():
   return temp.replace('\n','')
 
 
-
+#Affichage température et humidité ecran LCD
 def show_dht_screen():
   global page
 
@@ -182,6 +192,7 @@ def show_dht_screen():
   LCD.setCursor(1,0)
   LCD.write('Hum : {0:2}%'.format(hum))
 
+#Affichage Co2 et light ecran lcd
 def show_C02_lignt_screen():
   global page
 
@@ -194,6 +205,7 @@ def show_C02_lignt_screen():
   LCD.setCursor(1,0)
   LCD.write('CO2 : {0:2}ppm'.format(CO2_value))
 
+#Affichage des ips
 def show_ips():
   global page
 
@@ -206,6 +218,7 @@ def show_ips():
   LCD.setCursor(1,0)
   LCD.write('{}'.format( ip_wifi() ))
 
+#Classe pour la gestion de l'affichage des écran
 class thread_screen(threading.Thread):
   def __init__(self):
     threading.Thread.__init__(self)  # ne pas oublier cette ligne
@@ -240,7 +253,7 @@ class thread_screen(threading.Thread):
       time.sleep(1)
 
 
-
+#Fonction de capture information provenant du button
 def on_event(index, event, callback):
   global ip_activation, cmd_ready
 
@@ -264,31 +277,43 @@ def on_event(index, event, callback):
 
 if __name__ == '__main__':
   global client
-  logger.info("Welcome")
+  #logger.info("Welcome on station Liphy")
   count =  wait_b_send*60+10
+
+  #definition fct pour event button
   Red_button.on_event = on_event
 
+  #démmarage thread écran
   m = thread_screen()
   m.start()
 
+  #Demarage thread pour récupération des données
   x = threading.Thread(target=catch_sensors_values)
   x.start()
 
+  #Initialisation connexion avec cayenne
   client = cayenne.client.CayenneMQTTClient()
   client.on_message = on_message #When message recieved from Cayenne run on_message function
   client.begin(username, password, clientid)
 
+  #Petit pause et récupération des données drivers mqtt
   time.sleep(5)
   client.loop()
-  while True:
-    #Send data to Cayenne 
-    
+
+  #init save of data
+  init_csv()
+
+
+  while True:    
     if cmd_ready == True:
       #mode cmd, i catch more frequently
       client.loop()
-    elif (count >=  (wait_b_send*60)):#Only 10 minutes 
+
+    elif (count >=  (wait_b_send*60)):#time in minutes
       count = 0
+      #refresh connexion
       client.begin(username, password, clientid)
+      
       #prepare to publish
       client.virtualWrite(4, temp, "temp", "c" )
       client.virtualWrite(5, hum, "rel_hum", "p")
@@ -299,17 +324,22 @@ if __name__ == '__main__':
       client.virtualWrite(9, alarm_ready, "digital_sensor", "d")
       client.virtualWrite(10, wait_b_send, "analog_sensor")
       client.virtualWrite(11, triger_co2, "analog_sensor")
-      logger.info("Data send")
-      test = client.loop()
-      logger.info(test)
+
+      #Envoie des données
+      client.loop()
+      #logger.info("Data send")
+
+
+      #Enregistrement en local
       save_csv()
-      print("data send")
+      #logger.info("Data save")
+
  
     if cmd_ready == False:
       count+=1
-      logger.info(count)
+      #logger.info(count)
+      print(count)
     time.sleep(1)
-    print("Status : {}   {} ".format(cmd_ready, count))
 
   m.join()
   x.join()
