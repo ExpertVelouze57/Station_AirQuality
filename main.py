@@ -1,54 +1,71 @@
 #!/usr/bin/env python3
 
+#Global librairy
 import os
-
 import sys
-
-#Import all librairy
-import cayenne.client #Cayenne MQTT Client
-import threading
-import logging
 import time
-
+import logging
 from csv import writer
+from datetime import datetime
+
+#Librairy for Cayenne and thread
+import cayenne.client 
+import threading
+
+#Librairy for modules grove
 from grove.adc import ADC
 from seeed_dht import DHT
-from datetime import datetime
 from grove.button import Button
 from grove.display.jhd1802 import JHD1802
 from grove.grove_ryb_led_button import GroveLedButton
 from grove.grove_light_sensor_v1_2 import GroveLightSensor
 
+#Recuperation de la date en global (pour les fichiers de log et data)
+date_start = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
 
 
+#Création d'un fichier de log si besoins
+'''
+logging.basicConfig(filename="/home/pi/log_"+ date_start  +".log",
+                    format='%(asctime)s %(message)s',
+                    filemode='w'
+                  )
 
-#Variable globale
+logger = logging.getLogger()
+# Setting the threshold of logger to DEBUG
+logger.setLevel(logging.DEBUG)
+'''
+
+
+### Variable globale
+name_of_file = "data_"+ date_now  +".csv"
+
+## variable gestion de page
 ip_activation = False
 cmd_ready = False
-
 important = False
-already_send = False
-
 page = 1
 
+## Variable données capteurs
 temp = 0.0
 hum = 0.0
 light_value = 0.0
 CO2_value = 0.0
 
+## variale input par default
 alarm_ready = 1
 alarm_in_progress =0
-wait_b_send = 3
-triger_co2 = 1500
+wait_b_send = 5
+triger_co2 = 1100
 
-id =0
-### Definition of all pin 
+
+### Definition des pin des différents modules
 PIN_DHT = 5
 PIN_CO2 = 6
 PIN_BUTTON = 22
 PIN_LIGHT_SENSOR = 2
 
-#defiçnition of instance
+### Definition des instances des composant
 DHT_sensor = DHT('11', PIN_DHT)
 CO2_adc = ADC()
 LCD = JHD1802()
@@ -60,12 +77,13 @@ username = "55656590-9b20-11ec-8da3-474359af83d7"
 password = "3f5970ed8c45a61103ae0bef382df719b4fb981e"
 clientid = "0ecc0210-9d78-11ec-8c44-371df593ba58"
 
+
+
 def save_csv():
-  global id
-  id = datetime.today().strftime('%Y-%m-%d_ %H:%M:%S')
+  id = datetime.today().strftime('%Y-%m-%d_%H:%M:%S')
   list_data=[id,temp,hum, light_value, CO2_value]
 
-  with open('/home/pi/base.csv', 'a', newline='') as f_object:  
+  with open('/home/pi/'+name_of_file, 'a', newline='') as f_object:  
     # Pass the CSV  file object to the writer() function
     writer_object = writer(f_object)
     # Result - a writer object
@@ -121,13 +139,14 @@ def catch_sensors_values():
     else:
       if important == True :
         important =False
+        client.loop()
         alarm_in_progress = 0
         client.virtualWrite(4, temp, "temp", "c" )
         client.virtualWrite(5, hum, "rel_hum", "p")
         client.virtualWrite(6, light_value, "lighting_sense", "lux")
         client.virtualWrite(7, CO2_value, "co2", "ppm")
         client.virtualWrite(8, alarm_in_progress, "digital_sensor", "d")
-        client.loop()    
+        client.loop()
 
     #light value
     light_value = Light_sensor.light
@@ -245,6 +264,7 @@ def on_event(index, event, callback):
 
 if __name__ == '__main__':
   global client
+  logger.info("Welcome")
   count =  wait_b_send*60+10
   Red_button.on_event = on_event
 
@@ -268,6 +288,7 @@ if __name__ == '__main__':
       client.loop()
     elif (count >=  (wait_b_send*60)):#Only 10 minutes 
       count = 0
+      client.begin(username, password, clientid)
       #prepare to publish
       client.virtualWrite(4, temp, "temp", "c" )
       client.virtualWrite(5, hum, "rel_hum", "p")
@@ -278,13 +299,15 @@ if __name__ == '__main__':
       client.virtualWrite(9, alarm_ready, "digital_sensor", "d")
       client.virtualWrite(10, wait_b_send, "analog_sensor")
       client.virtualWrite(11, triger_co2, "analog_sensor")
-
-      client.loop()
+      logger.info("Data send")
+      test = client.loop()
+      logger.info(test)
       save_csv()
       print("data send")
  
     if cmd_ready == False:
       count+=1
+      logger.info(count)
     time.sleep(1)
     print("Status : {}   {} ".format(cmd_ready, count))
 
