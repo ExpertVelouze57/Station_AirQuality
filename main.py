@@ -73,9 +73,9 @@ Red_button = GroveLedButton(PIN_BUTTON)
 Light_sensor = GroveLightSensor(PIN_LIGHT_SENSOR)
 
 #definition des données MQTT
-username = "55656590-9b20-11ec-8da3-474359af83d7"
-password = "3f5970ed8c45a61103ae0bef382df719b4fb981e"
-clientid = "0ecc0210-9d78-11ec-8c44-371df593ba58"
+username = #mettre les information données par cayenne
+password = #mettre les information données par cayenne
+clientid = #mettre les information données par cayenne
 
 
 
