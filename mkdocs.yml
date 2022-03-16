@@ -1,0 +1,25 @@
+site_name: Station_AirQuality
+nav:
+    - Configuration:
+        - Basique: Configuration_facile.md
+        - Avancé:  Configuration_custom.md
+        - Cayenne : Configuration_cayenne.md
+        - Flash image : Configuration_flash.md
+    - Guide d'utilisation:
+        - Le Dashboard: utilisation_dashboard.md
+        - Le Matériel: utilisation_materiel.md
+        - Connexion: utilisation_connexion.md
+    - Plus d'informations:
+        - Le Software: Plus d_informations_soft.md
+        - Les Capteurs: Plus d_informations_capteur.md
+        - MQTT: Plus d_informations_mqtt.md
+        - Le Hardware: Plus d_informations_hard.md
+theme:
+    name: readthedocs
+
+markdown_extensions:
+    - smarty
+    - sane_lists
+    - admonition
+    - toc:
+        permalink: true
