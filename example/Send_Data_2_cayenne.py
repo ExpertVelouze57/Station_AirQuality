@@ -4,9 +4,9 @@ import time
 
 time.sleep(30)
 
-username = "ced99370-4c46-11ec-8da3-474359af83d7"
-password = "3eaf7469d09999b419c2f42a225e9055b006b34b"
-clientid = "baef0980-9994-11ec-a681-73c9540e1265"
+username = "A remplire"
+password = "A remplire"
+clientid = "A remplire"
 
 mqttc = mqtt.Client(client_id=clientid)
 mqttc.username_pw_set(username, password=password)
