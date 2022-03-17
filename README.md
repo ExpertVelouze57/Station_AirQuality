@@ -2,6 +2,8 @@
 
 Dans cette documentation vous trouverez tout les liens vers le code et la documentation pour répliqué ce dispositif.
 
+Lien vers la documentation : [lien](https://station-airquality.readthedocs.io/fr/latest/)
+
 ## Contexte
 
 Il ne sagit pas réelement d'un projet a proprement parlé mais plus d'une preuve de concepte. 
